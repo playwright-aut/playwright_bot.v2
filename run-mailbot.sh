@@ -8,8 +8,8 @@ echo "[run-mailbot] $(TS) start wrapper..."
 cd "$HOME/crm-bot-mail" || exit 1
 mkdir -p debug state VU3MailQueue VU3MailQueueProcessed VU3MailQueueBlocked
 
-if ! command -v /usr/local/bin/node >/dev/null 2>&1; then
-  echo "[run-mailbot] $(TS) ERROR: /usr/local/bin/node nincs meg"
+if ! command -v node >/dev/null 2>&1; then
+  echo "[run-mailbot] $(TS) ERROR: node nincs meg"
   exit 1
 fi
 
@@ -27,4 +27,4 @@ echo $$ > "$LOCK"
 trap 'rm -f "$LOCK"' EXIT INT TERM
 
 echo "[run-mailbot] $(TS) Starting bot-mail.js..."
-exec /usr/local/bin/node "$HOME/crm-bot-mail/bot-mail.js" >> "$HOME/crm-bot-mail/debug/mailbot.out" 2>> "$HOME/crm-bot-mail/debug/mailbot.err"
+exec node "$HOME/crm-bot-mail/bot-mail.js" >> "$HOME/crm-bot-mail/debug/mailbot.out" 2>> "$HOME/crm-bot-mail/debug/mailbot.err"

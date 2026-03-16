@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config({ quiet:true });
+require("dotenv").config({ path: require("path").join(__dirname, ".env"), quiet: true });
 
 const USER  = process.env.PUSHOVER_USER || process.env.PUSHOVER_USER_KEY;
 const TOKEN = process.env.PUSHOVER_TOKEN || process.env.PUSHOVER_API_TOKEN;

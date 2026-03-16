@@ -15,8 +15,8 @@ if [ -f "$HOME/crm-bot-mail/.env" ]; then
   set +a
 fi
 
-if ! command -v /usr/local/bin/node >/dev/null 2>&1; then
-  echo "[run-outlookwatch] $(TS) ERROR: /usr/local/bin/node nincs meg"
+if ! command -v node >/dev/null 2>&1; then
+  echo "[run-outlookwatch] $(TS) ERROR: node nincs meg"
   exit 1
 fi
 
@@ -35,11 +35,11 @@ trap 'rm -f "$LOCK"' EXIT INT TERM
 echo "[run-outlookwatch] $(TS) loop start (every 60s)"
 
 while true; do
-  /usr/local/bin/node "$HOME/crm-bot-mail/outlook-status-notify.js" \
+  node "$HOME/crm-bot-mail/outlook-status-notify.js" \
     >> "$HOME/crm-bot-mail/debug/outlook-statusnotify.out" \
     2>> "$HOME/crm-bot-mail/debug/outlook-statusnotify.err" || true
 
-  /usr/local/bin/node "$HOME/crm-bot-mail/outlook-session-watch.js" \
+  node "$HOME/crm-bot-mail/outlook-session-watch.js" \
     >> "$HOME/crm-bot-mail/debug/outlook-sessionwatch.out" \
     2>> "$HOME/crm-bot-mail/debug/outlook-sessionwatch.err" || true
 

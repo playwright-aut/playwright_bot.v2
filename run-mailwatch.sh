@@ -10,8 +10,8 @@ echo "[run-mailwatch] $(TS) start wrapper..."
 cd "$BASE" || exit 1
 mkdir -p debug state VU3MailQueue VU3MailQueueProcessed VU3MailQueueBlocked
 
-if ! command -v /usr/local/bin/node >/dev/null 2>&1; then
-  echo "[run-mailwatch] $(TS) ERROR: /usr/local/bin/node nincs meg"
+if ! command -v node >/dev/null 2>&1; then
+  echo "[run-mailwatch] $(TS) ERROR: node nincs meg"
   exit 1
 fi
 
@@ -38,7 +38,7 @@ while true; do
     continue
   fi
 
-  /usr/local/bin/node "$BASE/mail-watch.js" \
+  node "$BASE/mail-watch.js" \
     >> "$BASE/debug/mailwatch.out" \
     2>> "$BASE/debug/mailwatch.err" || true
 

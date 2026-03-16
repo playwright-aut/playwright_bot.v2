@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config({ quiet:true });
+require("dotenv").config({ path: require("path").join(__dirname, ".env"), quiet: true });
 const { chromium } = require('playwright');
 
 const START_CAS   = 'https://sso.cross.porscheinformatik.com/cas/login?service=https%3A%2F%2Fsystemmanagement.cross.porscheinformatik.com%2Fcrossng-systemmanagement%2Flogin%2Fcas';

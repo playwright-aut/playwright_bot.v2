@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-require("dotenv").config({ quiet: true });
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env"), quiet: true });
 
 const path = require("path");
 const { chromium } = require("playwright");

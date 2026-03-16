@@ -156,13 +156,13 @@ function clearStuckAlerts() {
 }
 
 async function sendPushover(title, message) {
-  const node = '/usr/local/bin/node';
+  const node = process.execPath;
   const sender = path.join(CRM_DIR, 'send-pushover.js');
   await run(node, [sender, title, message], 30000);
 }
 
 async function runLoginCheck() {
-  const node = '/usr/local/bin/node';
+  const node = process.execPath;
   const file = path.join(CRM_DIR, 'login-check.js');
   const r = await run(node, [file], 30000);
   const out = (r.stdout || '').trim();
@@ -178,7 +178,7 @@ async function runLoginCheck() {
  * FONTOS: ezt csak OFFLINE/unknown esetben futtatjuk. ONLINE-nál NULLA Playwright.
  */
 async function playwrightLoggedInProbe() {
-  const node = '/usr/local/bin/node';
+  const node = process.execPath;
 
   const probeJs = `
     (async () => {
@@ -242,7 +242,7 @@ async function recoverLogin() {
 
   // 2) fallback: auto-login-vu3.js
   if (!r.ok) {
-    const node = '/usr/local/bin/node';
+    const node = process.execPath;
     const file = path.join(CRM_DIR, 'auto-login-vu3.js');
     const r2 = await run(node, [file], TIMEOUT_MS);
     all += '\n' + (r2.stdout || '') + '\n' + (r2.stderr || '');

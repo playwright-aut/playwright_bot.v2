@@ -41,7 +41,7 @@ echo "$NOW" > "$STAMP"
 
 echo "[login-recover] START $(date '+%Y-%m-%dT%H:%M:%S%z')" >> "$LOG"
 
-OUT=$(/usr/local/bin/node auto-login-vu3.js 2>&1 | tee -a "$LOG" || true)
+OUT=$(node auto-login-vu3.js 2>&1 | tee -a "$LOG" || true)
 
 if echo "$OUT" | grep -q "NEED_2FA"; then
   echo "[login-recover] NEED_2FA -> manual required" >> "$LOG"

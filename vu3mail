@@ -136,10 +136,10 @@ cmd_on() {
   fi
 
   echo "[vu3mail] CRM login..."
-  /usr/local/bin/node "$BASE/auto-login-vu3.js" || /bin/zsh "$BASE/tools/relogin-hard.sh" || true
+  node "$BASE/auto-login-vu3.js" || /bin/zsh "$BASE/tools/relogin-hard.sh" || true
 
   echo "[vu3mail] Outlook login..."
-  /usr/local/bin/node "$BASE/tools/outlook-login.js" || true
+  node "$BASE/tools/outlook-login.js" || true
 
   start_wrapper "mail-watch"      "run-mailwatch\.sh"     "./run-mailwatch.sh"
   start_wrapper "bot-mail"        "/crm-bot-mail/bot-mail\.js" "./run-mailbot.sh"
@@ -147,7 +147,7 @@ cmd_on() {
   start_wrapper "outlook-watch"   "run-outlookwatch\.sh"  "./run-outlookwatch.sh"
 
   sleep 10
-  /usr/local/bin/node "$BASE/bot-state-push.js" online || true
+  node "$BASE/bot-state-push.js" online || true
   print_on_block
 }
 
@@ -156,15 +156,15 @@ cmd_off() {
   full_stop
 
   echo "[vu3mail] CRM logout..."
-  /usr/local/bin/node "$BASE/crm-logout.js" || true
+  node "$BASE/crm-logout.js" || true
 
   echo "[vu3mail] Outlook logout..."
-  /usr/local/bin/node "$BASE/outlook-logout.js" || true
+  node "$BASE/outlook-logout.js" || true
 
   full_stop
   echo "[vu3mail] Playwright profilok törlése..."
   /bin/zsh "$BASE/tools/purge-profiles.sh" || true
-  /usr/local/bin/node "$BASE/bot-state-push.js" offline || true
+  node "$BASE/bot-state-push.js" offline || true
   echo "[vu3mail] kész (off)"
   print_off_block
 }
@@ -265,37 +265,37 @@ cmd_health() {
 cmd_outlook_login() {
   cd "$BASE"
   echo "→ Outlook login..."
-  /usr/local/bin/node ./tools/outlook-login.js || true
+  node ./tools/outlook-login.js || true
 }
 
 cmd_crm_login() {
   cd "$BASE"
   echo "→ CRM login..."
-  /usr/local/bin/node ./auto-login-vu3.js || /bin/zsh ./tools/relogin-hard.sh || true
+  node ./auto-login-vu3.js || /bin/zsh ./tools/relogin-hard.sh || true
 }
 
 cmd_outlook_manual() {
   cd "$BASE"
   echo "→ Outlook manuális login..."
-  /usr/local/bin/node ./outlook-manual-login.js || true
+  node ./outlook-manual-login.js || true
 }
 
 cmd_crm_manual() {
   cd "$BASE"
   echo "→ CRM manuális login..."
-  /usr/local/bin/node ./crm-manual-login.js || true
+  node ./crm-manual-login.js || true
 }
 
 cmd_outlook_open() {
   cd "$BASE"
   echo "→ Outlook open..."
-  /usr/local/bin/node ./outlook-open-login.js || true
+  node ./outlook-open-login.js || true
 }
 
 cmd_crm_open() {
   cd "$BASE"
   echo "→ CRM open..."
-  /usr/local/bin/node ./crm-open-login.js || true
+  node ./crm-open-login.js || true
 }
 
 cmd_help() {
@@ -327,7 +327,7 @@ case "${1:-}" in
   outlook-open)   cmd_outlook_open ;;
   crm-manual)     cmd_crm_manual ;;
   outlook-manual) cmd_outlook_manual ;;
-  miss)           cd "$BASE"; /usr/local/bin/node "$BASE/tools/queue-miss.js" ;;
+  miss)           cd "$BASE"; node "$BASE/tools/queue-miss.js" ;;
   help|"")        cmd_help ;;
   *) echo "Ismeretlen parancs: $1"; echo; cmd_help; exit 1 ;;
 esac

@@ -1,4 +1,4 @@
-require('dotenv').config({ quiet: true });
+require("dotenv").config({ path: require("path").join(__dirname, ".env"), quiet: true });
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -66,7 +66,7 @@ function moveTo(file, dir){
 
     console.log(`[bot-mail] feldolgozás indul: ${leadId}`);
 
-    const r = spawnSync('/usr/local/bin/node', ['lead-process.js', leadId], {
+    const r = spawnSync(process.execPath, ['lead-process.js', leadId], {
       cwd: process.cwd(),
       stdio: 'inherit'
     });
@@ -80,7 +80,7 @@ function moveTo(file, dir){
 
       // outlook: mark as read (best effort)
       try {
-        const rr = spawnSync('/usr/local/bin/node', ['mail-mark-read.js', leadId], { cwd: process.cwd(), stdio: 'inherit' });
+        const rr = spawnSync(process.execPath, ['mail-mark-read.js', leadId], { cwd: process.cwd(), stdio: 'inherit' });
         console.log('[bot-mail] mark-read exit:', rr.status);
       } catch (e) {
         console.log('[bot-mail] mark-read failed:', e?.message || String(e));

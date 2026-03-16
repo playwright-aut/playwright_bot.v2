@@ -16,8 +16,8 @@ if [ -f "$HOME/crm-bot-mail/.env" ]; then
   set +a
 fi
 
-if ! command -v /usr/local/bin/node >/dev/null 2>&1; then
-  echo "[run-sessionwatch] $(TS) ERROR: /usr/local/bin/node nincs meg"
+if ! command -v node >/dev/null 2>&1; then
+  echo "[run-sessionwatch] $(TS) ERROR: node nincs meg"
   exit 1
 fi
 
@@ -37,12 +37,12 @@ echo "[run-sessionwatch] $(TS) loop start (every 60s)"
 
 while true; do
   # 1) állapot frissítés + változásra push
-  /usr/local/bin/node "$HOME/crm-bot-mail/status-notify.js" \
+  node "$HOME/crm-bot-mail/status-notify.js" \
     >> "$HOME/crm-bot-mail/debug/statusnotify.out" \
     2>> "$HOME/crm-bot-mail/debug/statusnotify.err" || true
 
   # 2) session watchdog (autologin/relogin logika)
-  /usr/local/bin/node "$HOME/crm-bot-mail/session-watch.js" \
+  node "$HOME/crm-bot-mail/session-watch.js" \
     >> "$HOME/crm-bot-mail/debug/sessionwatch.out" \
     2>> "$HOME/crm-bot-mail/debug/sessionwatch.err" || true
 

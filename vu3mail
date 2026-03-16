@@ -1,0 +1,333 @@
+#!/bin/zsh
+set -euo pipefail
+
+BASE="$HOME/crm-bot-mail"
+CLI_LOG="$BASE/debug/cli.out"
+
+mkdir -p "$BASE/debug" "$BASE/state" "$BASE/VU3MailQueue" "$BASE/VU3MailQueueProcessed" "$BASE/VU3MailQueueBlocked"
+
+is_running() { pgrep -f "$1" >/dev/null 2>&1; }
+
+count_ps() {
+  ps ax -o command= \
+    | { grep -E "$1" || true; } \
+    | { grep -v grep || true; } \
+    | wc -l | tr -d ' '
+}
+
+q_count() { ls -1 "$BASE/VU3MailQueue" 2>/dev/null | wc -l | tr -d ' '; }
+p_count() { ls -1 "$BASE/VU3MailQueueProcessed" 2>/dev/null | wc -l | tr -d ' '; }
+b_count() { ls -1 "$BASE/VU3MailQueueBlocked" 2>/dev/null | wc -l | tr -d ' '; }
+
+crm_state_now() {
+  local v
+  v="$(grep '^STATE=' "$BASE/debug/statusnotify.state" 2>/dev/null | cut -d= -f2 || true)"
+  [ -z "$v" ] && echo "UNKNOWN" || echo "$v"
+}
+
+outlook_state_now() {
+  local v
+  v="$(grep '^STATE=' "$BASE/debug/outlook-statusnotify.state" 2>/dev/null | cut -d= -f2 || true)"
+  [ -z "$v" ] && echo "UNKNOWN" || echo "$v"
+}
+
+start_wrapper() {
+  local name="$1"
+  local pat="$2"
+  local cmd="$3"
+
+  if is_running "$pat"; then
+    echo "[vu3mail] már fut: $name"
+    return 0
+  fi
+
+  echo "[vu3mail] indul: $name"
+  nohup /bin/zsh -lc "cd \"$BASE\" && $cmd" >> "$CLI_LOG" 2>&1 &
+  sleep 0.5
+}
+
+kill_pat_term() { pkill -TERM -f "$1" 2>/dev/null || true; }
+kill_pat_kill() { pkill -9 -f "$1" 2>/dev/null || true; }
+
+full_stop() {
+  setopt LOCAL_OPTIONS NULL_GLOB
+
+  echo "[vu3mail] folyamatok leállítása..."
+
+  kill_pat_term "run-mailwatch\.sh"
+  kill_pat_term "run-sessionwatch\.sh"
+  kill_pat_term "run-outlookwatch\.sh"
+  kill_pat_term "/crm-bot-mail/mail-watch\.js"
+  kill_pat_term "/crm-bot-mail/bot-mail\.js"
+  kill_pat_term "/crm-bot-mail/session-watch\.js"
+  kill_pat_term "/crm-bot-mail/outlook-session-watch\.js"
+  kill_pat_term "/crm-bot-mail/outlook-status-notify\.js"
+  kill_pat_term "/crm-bot-mail/outlook-login-check\.js"
+  kill_pat_term "/crm-bot-mail/tools/outlook-login\.js"
+  kill_pat_term "pw-profile-mailwatch"
+  kill_pat_term "pw-profile-crm"
+  sleep 1
+
+  kill_pat_kill "run-mailwatch\.sh"
+  kill_pat_kill "run-sessionwatch\.sh"
+  kill_pat_kill "run-outlookwatch\.sh"
+  kill_pat_kill "/crm-bot-mail/mail-watch\.js"
+  kill_pat_kill "/crm-bot-mail/bot-mail\.js"
+  kill_pat_kill "/crm-bot-mail/session-watch\.js"
+  kill_pat_kill "/crm-bot-mail/outlook-session-watch\.js"
+  kill_pat_kill "/crm-bot-mail/outlook-status-notify\.js"
+  kill_pat_kill "/crm-bot-mail/outlook-login-check\.js"
+  kill_pat_kill "/crm-bot-mail/tools/outlook-login\.js"
+  kill_pat_kill "pw-profile-mailwatch"
+  kill_pat_kill "pw-profile-crm"
+  sleep 1
+
+  rm -f "$BASE/state/"*.lock 2>/dev/null || true
+  rm -rf "$BASE/state/"*.lockdir 2>/dev/null || true
+  rm -f "$BASE/debug/outlook-"*.lock "$BASE/debug/outlook-"*.ratelimit "$BASE/debug/outlook-statusnotify.state" 2>/dev/null || true
+  rm -f "$BASE/debug/statusnotify.state" "$BASE/debug/statusnotify.lock" "$BASE/debug/sessionwatch."* 2>/dev/null || true
+}
+
+print_on_block() {
+  local crm outlook
+  crm="$(crm_state_now)"
+  outlook="$(outlook_state_now)"
+
+  echo
+  echo "✨ CRM-BOT-MAIL ELINDULT"
+  echo
+  echo "🟢 CRM: $crm"
+  echo "🟢 Outlook: $outlook"
+  echo "📬 Mail watch: RUNNING"
+  echo "🛠️ Bot worker: RUNNING"
+  echo "📦 Queue: $(q_count) | ✅ Processed: $(p_count) | ⛔ Blocked: $(b_count)"
+  echo "🔔 ONLINE push elküldve"
+  echo
+}
+
+print_off_block() {
+  echo
+  echo "🛑 CRM-BOT-MAIL LEÁLLT"
+  echo
+  echo "⚫ CRM: OFF"
+  echo "⚫ Outlook: OFF"
+  echo "📦 Queue: $(q_count) | ✅ Processed: $(p_count) | ⛔ Blocked: $(b_count)"
+  echo "🔕 OFFLINE push elküldve"
+  echo
+}
+
+cmd_on() {
+
+  local q
+  q="$(q_count)"
+
+  if [ "$q" -gt 0 ]; then
+    echo
+    echo "⚠️ KIHAGYOTT LEADEK TALÁLHATÓK"
+    echo
+    echo "Queue: $q"
+    echo
+    echo "A bot nem indul el amíg nem rendezed őket."
+    echo
+    echo "Futtasd:"
+    echo "vu3mail miss"
+    echo
+    exit 1
+  fi
+
+  echo "[vu3mail] CRM login..."
+  /usr/local/bin/node "$BASE/auto-login-vu3.js" || /bin/zsh "$BASE/tools/relogin-hard.sh" || true
+
+  echo "[vu3mail] Outlook login..."
+  /usr/local/bin/node "$BASE/tools/outlook-login.js" || true
+
+  start_wrapper "mail-watch"      "run-mailwatch\.sh"     "./run-mailwatch.sh"
+  start_wrapper "bot-mail"        "/crm-bot-mail/bot-mail\.js" "./run-mailbot.sh"
+  start_wrapper "session-watch"   "run-sessionwatch\.sh"  "./run-sessionwatch.sh"
+  start_wrapper "outlook-watch"   "run-outlookwatch\.sh"  "./run-outlookwatch.sh"
+
+  sleep 10
+  /usr/local/bin/node "$BASE/bot-state-push.js" online || true
+  print_on_block
+}
+
+cmd_off() {
+  echo "[vu3mail] OFF..."
+  full_stop
+
+  echo "[vu3mail] CRM logout..."
+  /usr/local/bin/node "$BASE/crm-logout.js" || true
+
+  echo "[vu3mail] Outlook logout..."
+  /usr/local/bin/node "$BASE/outlook-logout.js" || true
+
+  full_stop
+  echo "[vu3mail] Playwright profilok törlése..."
+  /bin/zsh "$BASE/tools/purge-profiles.sh" || true
+  /usr/local/bin/node "$BASE/bot-state-push.js" offline || true
+  echo "[vu3mail] kész (off)"
+  print_off_block
+}
+
+cmd_status() {
+  local crm_state outlook_state
+  local mw_wrap bw_node sw_wrap ow_wrap
+  local any_running
+  local crm_icon outlook_icon
+  local mail_icon crmw_icon outw_icon bot_icon
+  local mail_state crmw_state outw_state bot_state
+
+  crm_state="$(crm_state_now)"
+  outlook_state="$(outlook_state_now)"
+
+  mw_wrap="$(count_ps 'run-mailwatch\.sh')"
+  bw_node="$(count_ps 'node .*crm-bot-mail/bot-mail\.js')"
+  sw_wrap="$(count_ps 'run-sessionwatch\.sh')"
+  ow_wrap="$(count_ps 'run-outlookwatch\.sh')"
+
+  any_running=$(( mw_wrap + bw_node + sw_wrap + ow_wrap ))
+
+  if [ "$any_running" -eq 0 ]; then
+    crm_state="OFF"
+    outlook_state="OFF"
+  fi
+
+  case "$crm_state" in
+    ONLINE) crm_icon="🟢" ;;
+    OFF)    crm_icon="⚫" ;;
+    *)      crm_icon="🟡" ;;
+  esac
+
+  case "$outlook_state" in
+    ONLINE) outlook_icon="🟢" ;;
+    OFF)    outlook_icon="⚫" ;;
+    *)      outlook_icon="🟡" ;;
+  esac
+
+  if [ "$mw_wrap" -gt 0 ]; then mail_icon="📬"; mail_state="RUNNING"; else mail_icon="📪"; mail_state="STOPPED"; fi
+  if [ "$sw_wrap" -gt 0 ]; then crmw_icon="🧭"; crmw_state="RUNNING"; else crmw_icon="⏸️"; crmw_state="STOPPED"; fi
+  if [ "$ow_wrap" -gt 0 ]; then outw_icon="👀"; outw_state="RUNNING"; else outw_icon="⏸️"; outw_state="STOPPED"; fi
+  if [ "$bw_node" -gt 0 ]; then bot_icon="🛠️"; bot_state="RUNNING"; else bot_icon="⏸️"; bot_state="STOPPED"; fi
+
+  echo
+  if [ "$any_running" -gt 0 ]; then
+    echo "📊 CRM-BOT-MAIL ÁLLAPOT"
+  else
+    echo "🛑 CRM-BOT-MAIL LEÁLLT"
+  fi
+  echo
+  echo "$crm_icon CRM: $crm_state"
+  echo "$outlook_icon Outlook: $outlook_state"
+  echo "$mail_icon Mail watch: $mail_state"
+  echo "$crmw_icon CRM watch: $crmw_state"
+  echo "$outw_icon Outlook watch: $outw_state"
+  echo "$bot_icon Bot worker: $bot_state"
+  echo "📦 Queue: $(q_count) | ✅ Processed: $(p_count) | ⛔ Blocked: $(b_count)"
+  echo
+}
+
+cmd_health() {
+  local crm_state outlook_state
+  local mw_wrap bw_node sw_wrap ow_wrap
+  local q p b any_running
+
+  crm_state="$(crm_state_now)"
+  outlook_state="$(outlook_state_now)"
+
+  mw_wrap="$(count_ps 'run-mailwatch\.sh')"
+  bw_node="$(count_ps 'node .*crm-bot-mail/bot-mail\.js')"
+  sw_wrap="$(count_ps 'run-sessionwatch\.sh')"
+  ow_wrap="$(count_ps 'run-outlookwatch\.sh')"
+
+  any_running=$(( mw_wrap + bw_node + sw_wrap + ow_wrap ))
+
+  if [ "$any_running" -eq 0 ]; then
+    crm_state="OFF"
+    outlook_state="OFF"
+  fi
+
+  q="$(q_count)"
+  p="$(p_count)"
+  b="$(b_count)"
+
+  echo "=== CRM-BOT-MAIL HEALTH ==="
+  echo "CRM:           $crm_state"
+  echo "Outlook:       $outlook_state"
+  echo "Mail watch:    $( [ "$mw_wrap" -gt 0 ] && echo RUNNING || echo STOPPED )"
+  echo "CRM watch:     $( [ "$sw_wrap" -gt 0 ] && echo RUNNING || echo STOPPED )"
+  echo "Outlook watch: $( [ "$ow_wrap" -gt 0 ] && echo RUNNING || echo STOPPED )"
+  echo "Bot worker:    $( [ "$bw_node" -gt 0 ] && echo RUNNING || echo STOPPED )"
+  echo "Queue:         $q"
+  echo "Processed:     $p"
+  echo "Blocked:       $b"
+}
+
+cmd_outlook_login() {
+  cd "$BASE"
+  echo "→ Outlook login..."
+  /usr/local/bin/node ./tools/outlook-login.js || true
+}
+
+cmd_crm_login() {
+  cd "$BASE"
+  echo "→ CRM login..."
+  /usr/local/bin/node ./auto-login-vu3.js || /bin/zsh ./tools/relogin-hard.sh || true
+}
+
+cmd_outlook_manual() {
+  cd "$BASE"
+  echo "→ Outlook manuális login..."
+  /usr/local/bin/node ./outlook-manual-login.js || true
+}
+
+cmd_crm_manual() {
+  cd "$BASE"
+  echo "→ CRM manuális login..."
+  /usr/local/bin/node ./crm-manual-login.js || true
+}
+
+cmd_outlook_open() {
+  cd "$BASE"
+  echo "→ Outlook open..."
+  /usr/local/bin/node ./outlook-open-login.js || true
+}
+
+cmd_crm_open() {
+  cd "$BASE"
+  echo "→ CRM open..."
+  /usr/local/bin/node ./crm-open-login.js || true
+}
+
+cmd_help() {
+  cat <<'H'
+🚗 CRM-BOT-MAIL CLI
+
+  🚀 on            teljes indulás: CRM login + Outlook login + bot start
+  🛑 off           teljes leállás: stop + CRM logout + Outlook logout
+  📊 status        teljes állapotkép
+  🔄 restart       off -> on
+
+  🪪 crm-open      automata CRM login, Enterre zár
+  📨 outlook-open  automata Outlook login, Enterre zár
+  📭 miss          kihagyott leadek kezelése / queue ürítés
+
+  ❓ help
+H
+}
+
+case "${1:-}" in
+  on)             cmd_on ;;
+  off)            cmd_off ;;
+  restart)        cmd_off; sleep 1; cmd_on ;;
+  status)         cmd_status ;;
+  health)         cmd_health ;;
+  crm-login)      cmd_crm_login ;;
+  outlook-login)  cmd_outlook_login ;;
+  crm-open)       cmd_crm_open ;;
+  outlook-open)   cmd_outlook_open ;;
+  crm-manual)     cmd_crm_manual ;;
+  outlook-manual) cmd_outlook_manual ;;
+  miss)           cd "$BASE"; /usr/local/bin/node "$BASE/tools/queue-miss.js" ;;
+  help|"")        cmd_help ;;
+  *) echo "Ismeretlen parancs: $1"; echo; cmd_help; exit 1 ;;
+esac

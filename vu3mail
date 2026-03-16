@@ -90,16 +90,48 @@ full_stop() {
 
 print_on_block() {
   local crm outlook
+  local mw_wrap bw_node sw_wrap ow_wrap any_running
+  local crm_icon outlook_icon
+  local mail_icon bot_icon
+  local mail_state bot_state
+
   crm="$(crm_state_now)"
   outlook="$(outlook_state_now)"
+
+  mw_wrap="$(count_ps 'run-mailwatch\.sh')"
+  bw_node="$(count_ps 'node .*crm-bot-mail/bot-mail\.js')"
+  sw_wrap="$(count_ps 'run-sessionwatch\.sh')"
+  ow_wrap="$(count_ps 'run-outlookwatch\.sh')"
+
+  any_running=$(( mw_wrap + bw_node + sw_wrap + ow_wrap ))
+
+  if [ "$any_running" -eq 0 ]; then
+    crm="OFF"
+    outlook="OFF"
+  fi
+
+  case "$crm" in
+    ONLINE) crm_icon="🟢" ;;
+    OFF)    crm_icon="⚫" ;;
+    *)      crm_icon="🟡" ;;
+  esac
+
+  case "$outlook" in
+    ONLINE) outlook_icon="🟢" ;;
+    OFF)    outlook_icon="⚫" ;;
+    *)      outlook_icon="🟡" ;;
+  esac
+
+  if [ "$mw_wrap" -gt 0 ]; then mail_icon="📬"; mail_state="RUNNING"; else mail_icon="📪"; mail_state="STOPPED"; fi
+  if [ "$bw_node" -gt 0 ]; then bot_icon="🛠️"; bot_state="RUNNING"; else bot_icon="⏸️"; bot_state="STOPPED"; fi
 
   echo
   echo "✨ CRM-BOT-MAIL ELINDULT"
   echo
-  echo "🟢 CRM: $crm"
-  echo "🟢 Outlook: $outlook"
-  echo "📬 Mail watch: RUNNING"
-  echo "🛠️ Bot worker: RUNNING"
+  echo "$crm_icon CRM: $crm"
+  echo "$outlook_icon Outlook: $outlook"
+  echo "$mail_icon Mail watch: $mail_state"
+  echo "$bot_icon Bot worker: $bot_state"
   echo "📦 Queue: $(q_count) | ✅ Processed: $(p_count) | ⛔ Blocked: $(b_count)"
   echo "🔔 ONLINE push elküldve"
   echo

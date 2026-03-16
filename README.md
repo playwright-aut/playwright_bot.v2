@@ -19,16 +19,30 @@ A rendszer az Outlook Web `VU3 Leads` mappáját figyeli, felismeri az új lead 
 
 ## Telepítés
 
-1. Csomag kibontása:
+1. lépés
 
-    unzip crm-bot-mail-installer-release.zip
+A projekt letöltése ZIP fájlként GitHubról:
 
-2. Belépés a mappába:
+    https://github.com/playwright-aut/playwright_bot.v2
 
-    cd crm-bot-mail-installer
+A GitHub oldalon:
+- Code
+- Download ZIP
 
-3. Telepítő futtatása:
+2. lépés
 
+Node.js telepítése:
+
+    https://nodejs.org
+
+Innen a macOS installer letöltése és telepítése szükséges.
+
+3. lépés
+
+Telepítő futtatása Terminálból:
+
+    cd ~/Downloads/playwright_bot.v2-main
+    chmod +x install.sh
     ./install.sh
 
 ## A telepítő mit csinál

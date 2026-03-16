@@ -116,8 +116,8 @@ VU3_ALERT_GRACE_MS=180000
 SESSIONWATCH_VERBOSE=0
 VU3_DEBUG=0
 
-PW_PROFILE_CRM=./pw-profile-crm
-PW_PROFILE_MAILWATCH=./pw-profile-mailwatch
+PW_PROFILE_CRM=$BASE/pw-profile-crm
+PW_PROFILE_MAILWATCH=$BASE/pw-profile-mailwatch
 ENVEOF
 
 chmod 600 "$BASE/.env"

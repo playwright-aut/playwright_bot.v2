@@ -132,6 +132,7 @@ print_on_block() {
   echo "$outlook_icon Outlook: $outlook"
   echo "$mail_icon Mail watch: $mail_state"
   echo "$bot_icon Bot worker: $bot_state"
+  echo
   echo "📦 Queue: $(q_count) | ✅ Processed: $(p_count) | ⛔ Blocked: $(b_count)"
   echo "🔔 ONLINE push elküldve"
   echo
@@ -254,6 +255,7 @@ cmd_status() {
   echo "$crmw_icon CRM watch: $crmw_state"
   echo "$outw_icon Outlook watch: $outw_state"
   echo "$bot_icon Bot worker: $bot_state"
+  echo
   echo "📦 Queue: $(q_count) | ✅ Processed: $(p_count) | ⛔ Blocked: $(b_count)"
   echo
 }

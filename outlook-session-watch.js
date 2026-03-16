@@ -22,6 +22,10 @@ const TIMEOUT_MS = 180000;
 
 const STATE_FILE = path.join(DEBUG_DIR, "outlook-statusnotify.state");
 const RECOVER_LOCK = path.join(DEBUG_DIR, "outlook-recover.lock");
+const FAIL_STATE_FILE = path.join(DEBUG_DIR, "outlook-sessionwatch.failstate.json");
+
+const GRACE_MS = 2 * 60 * 1000;
+const MIN_BAD_CHECKS = 3;
 
 function ts() {
   return new Date().toISOString();
@@ -102,6 +106,44 @@ function setRecoverLock() {
 function clearRecoverLock() {
   try { fs.unlinkSync(RECOVER_LOCK); } catch {}
 }
+function readFailState() {
+  try {
+    return JSON.parse(fs.readFileSync(FAIL_STATE_FILE, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeFailState(obj) {
+  try {
+    fs.writeFileSync(FAIL_STATE_FILE, JSON.stringify(obj), "utf8");
+  } catch {}
+}
+
+function clearFailState() {
+  try { fs.unlinkSync(FAIL_STATE_FILE); } catch {}
+}
+
+function markBadState(raw, st) {
+  const now = Date.now();
+  const prev = readFailState();
+
+  const sameKind =
+    prev &&
+    prev.state === String(st || "") &&
+    prev.raw === String(raw || "");
+
+  const next = {
+    firstSeenMs: prev?.firstSeenMs || now,
+    lastSeenMs: now,
+    count: sameKind ? ((prev?.count || 0) + 1) : ((prev?.count || 0) + 1),
+    raw: String(raw || ""),
+    state: String(st || "")
+  };
+
+  writeFailState(next);
+  return next;
+}
 
 async function push(title, message, extra = {}) {
   try {
@@ -174,20 +216,31 @@ function detectRecoverProblem(rec) {
     const check0 = await runOutlookLoginCheck();
 
     if (check0.online) {
+      clearFailState();
       log(`FRESH CHECK ONLINE -> skip everything (state=${st || "null"} check=${check0.raw || "EMPTY"})`);
       return;
     }
 
     const hardOffline = (st === "OFFLINE") || check0.offline;
+    const fail = markBadState(check0.raw || "EMPTY", st || "null");
+    const ageMs = Date.now() - (fail.firstSeenMs || Date.now());
 
-    if (!hardOffline && !canRun()) {
+    if (!hardOffline) {
+      log(`NOT HARD OFFLINE -> grace wait (state=${st || "null"} check=${check0.raw || "EMPTY"} count=${fail.count} ageMs=${ageMs})`);
+      return;
+    }
+
+    if (fail.count < MIN_BAD_CHECKS || ageMs < GRACE_MS) {
+      log(`HARD OFFLINE but grace active -> skip recover (state=${st || "null"} check=${check0.raw || "EMPTY"} count=${fail.count}/${MIN_BAD_CHECKS} ageMs=${ageMs}/${GRACE_MS})`);
+      return;
+    }
+
+    if (!canRun()) {
       log("SKIP (rate limit)");
       return;
     }
 
-    if (hardOffline) {
-      log(`HARD OFFLINE -> bypass rate limit (state=${st || "null"} check=${check0.raw || "EMPTY"})`);
-    }
+    log(`HARD OFFLINE -> recover allowed (state=${st || "null"} check=${check0.raw || "EMPTY"} count=${fail.count} ageMs=${ageMs})`);
 
     if (hasRecoverLock()) {
       log("SKIP (recover.lock held)");
@@ -207,6 +260,7 @@ function detectRecoverProblem(rec) {
 
       const check1 = await runOutlookLoginCheck();
       if (check1.online) {
+        clearFailState();
         log(`RECOVER OK -> ONLINE (${check1.raw})`);
         return;
       }

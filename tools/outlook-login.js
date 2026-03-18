@@ -58,6 +58,27 @@ async function bodyText(page) {
   try { return await page.locator("body").innerText(); } catch { return ""; }
 }
 
+async function hasMailboxReady(page) {
+  if (!isOnlineUrl(page.url() || "")) return false;
+
+  const treeCount = await count(page, '[role="tree"]');
+  if (treeCount <= 0) return false;
+
+  const folderLocators = [
+    page.getByRole("treeitem", { name: "VU3 Leads" }),
+    page.locator('[role="treeitem"]').filter({ hasText: "VU3 Leads" }),
+    page.getByText("VU3 Leads", { exact: true }),
+    page.getByText("VU3 Leads"),
+  ];
+
+  for (const loc of folderLocators) {
+    try {
+      if (await loc.count()) return true;
+    } catch {}
+  }
+  return false;
+}
+
 async function isOnline(page) {
   const url = page.url() || "";
   const savedTileCount = OUTLOOK_USER ? await count(page, `[data-test-id="${OUTLOOK_USER}"]`) : 0;
@@ -139,7 +160,7 @@ async function openFreshPage(ctx) {
     while (Date.now() - started < LOGIN_TIMEOUT_MS) {
       // console.log("[outlook-login] következő lépés");
 
-      if (await isOnline(page)) {
+      if (await isOnline(page) && await hasMailboxReady(page)) {
         console.log("[outlook-login] OK: Outlook login kész");
         await ctx.close().catch(() => {});
         process.exit(0);
@@ -218,7 +239,7 @@ async function openFreshPage(ctx) {
         console.log("[outlook-login] 2FA szükséges");
         await page.waitForTimeout(120000);
 
-        if (await isOnline(page)) {
+        if (await isOnline(page) && await hasMailboxReady(page)) {
           console.log("[outlook-login] OK: Outlook login kész 2FA után");
           await ctx.close().catch(() => {});
           process.exit(0);

@@ -87,6 +87,29 @@ async function firstExisting(locators) {
   return null;
 }
 
+async function waitForFolder(page, folderName, timeoutMs = 30000) {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    try { await page.waitForSelector('[role="tree"]', { timeout: 5000 }); } catch {}
+
+    const folder = await firstExisting([
+      page.getByRole("treeitem", { name: folderName }),
+      page.locator('[role="treeitem"]').filter({ hasText: folderName }),
+      page.getByText(folderName, { exact: true }),
+      page.getByText(folderName)
+    ]);
+
+    if (folder) return folder;
+
+    await page.waitForTimeout(2000);
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+  }
+
+  return null;
+}
+
 (async () => {
   ensureDir(QUEUE_DIR);
   ensureDir(DONE_DIR);
@@ -130,17 +153,10 @@ async function firstExisting(locators) {
 
     console.log("[mail-watch] outlook online mailbox ok");
 
-    try { await page.waitForSelector('[role="tree"]', { timeout: 20000 }); } catch {}
-
-    const folder = await firstExisting([
-      page.getByRole("treeitem", { name: FOLDER_NAME }),
-      page.locator('[role="treeitem"]').filter({ hasText: FOLDER_NAME }),
-      page.getByText(FOLDER_NAME, { exact: true }),
-      page.getByText(FOLDER_NAME)
-    ]);
+    const folder = await waitForFolder(page, FOLDER_NAME, 30000);
 
     if (!folder) {
-      throw new Error(`[mail-watch] Nem találom a folder-t: "${FOLDER_NAME}"`);
+      throw new Error(`[mail-watch] Nem találom a folder-t 30 mp retry után: "${FOLDER_NAME}"`);
     }
 
     try { await folder.scrollIntoViewIfNeeded(); } catch {}

@@ -41,6 +41,27 @@ async function count(page, sel) {
   }
 }
 
+async function hasMailboxReady(page) {
+  if (!isOnlineUrl(page.url() || "")) return false;
+
+  const treeCount = await count(page, '[role="tree"]');
+  if (treeCount <= 0) return false;
+
+  const folderLocators = [
+    page.getByRole("treeitem", { name: "VU3 Leads" }),
+    page.locator('[role="treeitem"]').filter({ hasText: "VU3 Leads" }),
+    page.getByText("VU3 Leads", { exact: true }),
+    page.getByText("VU3 Leads"),
+  ];
+
+  for (const loc of folderLocators) {
+    try {
+      if (await loc.count()) return true;
+    } catch {}
+  }
+  return false;
+}
+
 let ctx;
 let forced = false;
 
@@ -84,9 +105,12 @@ setTimeout(() => finish('UNKNOWN'), 15000);
       otherTileCount > 0 ||
       isOfflineUrl(url);
 
+    const mailboxReady = await hasMailboxReady(page);
+
     const onlineSignals =
       isOnlineUrl(url) &&
-      !offlineSignals;
+      !offlineSignals &&
+      mailboxReady;
 
     if (process.env.VU3_DEBUG === '1') {
       console.log('DEBUG_URL:', url);
@@ -94,6 +118,7 @@ setTimeout(() => finish('UNKNOWN'), 15000);
       console.log('DEBUG_PASS:', passCount);
       console.log('DEBUG_SAVED_TILE:', savedTileCount);
       console.log('DEBUG_OTHER_TILE:', otherTileCount);
+      console.log('DEBUG_MAILBOX_READY:', mailboxReady);
     }
 
     if (onlineSignals) return finish('ONLINE');
